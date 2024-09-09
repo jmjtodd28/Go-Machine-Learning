@@ -20,6 +20,11 @@ type MultiLayerPerceptron struct {
 	Nlayers int
 	Bias    []*mat.Dense
 	Weights []*mat.Dense
+
+	Fitted       bool
+	IsClassifier bool
+	// output layer activation layer depends on whether it is a classification or regression problem
+	OutputActivation string
 }
 
 func NewMultiLayerPerceptron() *MultiLayerPerceptron {
@@ -29,9 +34,12 @@ func NewMultiLayerPerceptron() *MultiLayerPerceptron {
 		LearningRate: 1e-2,
 		Verbose:      true,
 		Activation:   "relu",
+		Fitted:       false,
+		IsClassifier: true,
 	}
 }
 
+// activation functions applied over a layer
 var Activate = map[string]func(x *mat.Dense){
 	"identity": func(x *mat.Dense) {},
 	"sigmoid": func(x *mat.Dense) {
@@ -63,6 +71,22 @@ var Activate = map[string]func(x *mat.Dense){
 			}
 		}
 	},
+	"softmax": func(x *mat.Dense) {
+		rows, cols := x.Dims()
+
+		for i := range rows {
+			sum := 0.0
+			for j := range cols {
+				value := math.Exp(x.At(i, j))
+				x.Set(i, j, value)
+				sum += value
+			}
+
+			for j := range cols {
+				x.Set(i, j, (x.At(i, j) / sum))
+			}
+		}
+	},
 }
 
 var Derivative = map[string]func(x *mat.Dense){
@@ -70,10 +94,9 @@ var Derivative = map[string]func(x *mat.Dense){
 		rows, cols := x.Dims()
 		for i := range rows {
 			for j := range cols {
-        x.Set(i, j , 1)
+				x.Set(i, j, 1)
 			}
 		}
-
 	},
 	"sigmoid": func(x *mat.Dense) {
 		rows, cols := x.Dims()
@@ -117,6 +140,8 @@ func sigmoidDerivative(z float64) float64 {
 	return s * (1 - s)
 }
 
+// Inits the weights of the biases and Weights for every neuron that follows normal distribution
+// Each layer there is a matrix containing the weights and biases, excluding the input layer
 func (mlp *MultiLayerPerceptron) initWeights() {
 	mlp.Nlayers = len(mlp.Arch)
 	mlp.Bias = make([]*mat.Dense, mlp.Nlayers-1)
@@ -138,8 +163,16 @@ func (mlp *MultiLayerPerceptron) initWeights() {
 	}
 }
 
+// Trains using SGD by splitting the data into batches
 func (mlp *MultiLayerPerceptron) Train(X, y *mat.Dense) {
 	mlp.initWeights()
+
+	//set the Activation of the output layer depending on problem type
+	if mlp.IsClassifier {
+		mlp.OutputActivation = "softmax"
+	} else if !mlp.IsClassifier {
+		mlp.OutputActivation = "identity"
+	}
 
 	nSamples, features := X.Dims()
 	_, ycols := y.Dims()
@@ -180,12 +213,21 @@ func (mlp *MultiLayerPerceptron) Train(X, y *mat.Dense) {
 
 	fmt.Println("Training finished, time taken :", time.Since(t1))
 
-	// make a prediction
-	xPredict := X.Slice(2, 3, 0, features).(*mat.Dense)
-	yPredict := y.Slice(2, 3, 0, 10).(*mat.Dense)
-	fmt.Printf("yPredict: %v\n", yPredict)
-	act, _ := mlp.forwardPass(xPredict)
-	fmt.Printf("act: %v\n", act[len(act)-1])
+	mlp.Fitted = true
+
+}
+
+// Effectively returns the final activation layer of a foward pass
+// regression = matrix with single prediction value
+// Classification task = matrix containing predicted classes
+func (mlp *MultiLayerPerceptron) Predict(X *mat.Dense) *mat.Dense {
+
+	if !mlp.Fitted {
+		panic("Model needs to be trained before making a prediction")
+	}
+
+	act, _ := mlp.forwardPass(X)
+	return act[len(act)-1]
 }
 
 // does a broadcast addition of biases to matrix a
@@ -209,6 +251,8 @@ func (mlp *MultiLayerPerceptron) forwardPass(X *mat.Dense) ([]*mat.Dense, []*mat
 	activations[0] = X
 	activatezs := Activate[mlp.Activation]
 
+	activateOutput := Activate[mlp.OutputActivation]
+
 	for i := range mlp.Nlayers - 1 {
 
 		var z mat.Dense
@@ -219,12 +263,21 @@ func (mlp *MultiLayerPerceptron) forwardPass(X *mat.Dense) ([]*mat.Dense, []*mat
 		var a mat.Dense
 		a.CloneFrom(&z)
 		zs[i] = &a
-		activatezs(activations[i+1])
+
+		//for classifiers we apply the softmax to the final layer, regression just identity
+		if (i + 1) == mlp.Nlayers-1 {
+			activateOutput(activations[i+1])
+		} else {
+			activatezs(activations[i+1])
+		}
 	}
 
 	return activations, zs
 }
 
+// calculate the loss gradient which will be used to update the paramaters for a specific layer
+// Δw = η/m Σ (δ • (a^l-1)^T)
+// Δb = η/m Σ δ
 func (mlp *MultiLayerPerceptron) calculateLossGrads(weightGrads, biasGrads, deltas []*mat.Dense, activation *mat.Dense, layer, nSamples int) {
 	var dw mat.Dense
 	dw.Mul(activation.T(), deltas[layer])
@@ -237,9 +290,10 @@ func (mlp *MultiLayerPerceptron) calculateLossGrads(weightGrads, biasGrads, delt
 	biasGrads[layer] = db
 }
 
+// calculates the derivates with respect to each parameter and weight
 func (mlp *MultiLayerPerceptron) backprop(X, y *mat.Dense) ([]*mat.Dense, []*mat.Dense) {
+	//obtain the activations and zs
 	activations, zs := mlp.forwardPass(X)
-	derivativeZ := Derivative[mlp.Activation]
 	nSamples, _ := X.Dims()
 	layer := mlp.Nlayers - 2
 
@@ -247,9 +301,12 @@ func (mlp *MultiLayerPerceptron) backprop(X, y *mat.Dense) ([]*mat.Dense, []*mat
 	biasGrads := make([]*mat.Dense, mlp.Nlayers-1)
 	deltas := make([]*mat.Dense, mlp.Nlayers-1)
 
-	//getting the error of the output layer
+  //TODO add different loss functions
+	//getting the error of the output layer (L) so we can propagate backwards
+	// δ^L = (a^L - y) ⊙ σ'(Z^L)
 	var delta mat.Dense
 	delta.Sub(activations[len(activations)-1], y)
+	derivativeZ := Derivative[mlp.Activation]
 	derivativeZ(zs[layer])
 	delta.MulElem(&delta, zs[layer])
 	deltas[layer] = &delta
@@ -257,6 +314,7 @@ func (mlp *MultiLayerPerceptron) backprop(X, y *mat.Dense) ([]*mat.Dense, []*mat
 	mlp.calculateLossGrads(weightGrads, biasGrads, deltas, activations[len(activations)-2], layer, nSamples)
 
 	//propagate that error backwards
+	//δ^l = ((w^l)^T) • δ^l+1) ⊙ σ'(Z^L)
 	for l := mlp.Nlayers - 2; l >= 1; l-- {
 		var newDelta mat.Dense
 		newDelta.Mul(deltas[l], mlp.Weights[l].T())
@@ -270,6 +328,8 @@ func (mlp *MultiLayerPerceptron) backprop(X, y *mat.Dense) ([]*mat.Dense, []*mat
 	return weightGrads, biasGrads
 }
 
+// updates all the weights and biases
+// w = w - Δw
 func (mlp *MultiLayerPerceptron) updateParams(weightGrads, biasGrads []*mat.Dense) {
 	for i := range len(weightGrads) {
 		mlp.Weights[i].Sub(mlp.Weights[i], weightGrads[i])
@@ -308,6 +368,7 @@ func (mlp *MultiLayerPerceptron) loss(y, h *mat.Dense) float64 {
 	return sum / (2 * float64(y.RawMatrix().Rows))
 }
 
+// Function to print the weights and biases for each layer
 func (mlp *MultiLayerPerceptron) Printnn() {
 	for i := range mlp.Weights {
 		fa := mat.Formatted(mlp.Weights[i], mat.Prefix(" "), mat.Squeeze())

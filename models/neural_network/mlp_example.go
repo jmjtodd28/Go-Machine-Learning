@@ -3,6 +3,9 @@ package neuralnetwork
 import (
 	"Go-Machine-Learning/dataSets/mnist"
 	"Go-Machine-Learning/utils"
+	"fmt"
+
+	"gonum.org/v1/gonum/mat"
 )
 
 func MLPExample() {
@@ -37,14 +40,21 @@ func MLPExample() {
 		})
 	*/
 
+  // Set Hyperparameters
 	mlp := NewMultiLayerPerceptron()
-
 	mlp.Arch = []int{784, 10, 10, 10}
-	mlp.Epochs = 100
+	mlp.Epochs = 60
 	mlp.BatchSize = 128
-	mlp.LearningRate = 1
-	mlp.Activation = "sigmoid"
+	mlp.LearningRate = 0.01
+	mlp.Activation = "relu"
 
+  //Train the model
 	mlp.Train(X, y)
+
+  //Make a prediciton of one of the samples
+  _, xcols := X.Dims()
+	xPredict := X.Slice(1, 3, 0, xcols).(*mat.Dense)
+  prediction := mlp.Predict(xPredict)
+  fmt.Printf("prediction: %v\n", prediction)
 
 }
