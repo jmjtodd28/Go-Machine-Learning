@@ -1,11 +1,11 @@
-package neuralnetworksblas
+package neuralnetwork
 
 import (
 	"Go-Machine-Learning/dataSets/mnist"
 	"Go-Machine-Learning/utils"
 )
 
-func MLPBlasExample() {
+func MLPExample() {
 
 	X, y := mnist.LoadMnistTrain()
 

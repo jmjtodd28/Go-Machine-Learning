@@ -1,11 +1,11 @@
 package main
 
 import (
-	"Go-Machine-Learning/models/neuralNetworksBlas"
+  "Go-Machine-Learning/models/neural_network"
 )
 
 func main() {
-	neuralnetworksblas.MLPBlasExample()
+  neuralnetwork.MLPExample()
 
   
 }

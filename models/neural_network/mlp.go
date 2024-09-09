@@ -1,4 +1,4 @@
-package neuralnetworksblas
+package neuralnetwork
 
 import (
 	"fmt"
