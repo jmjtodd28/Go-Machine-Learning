@@ -296,25 +296,22 @@ func (mlp *MultiLayerPerceptron) backprop(X, y *mat.Dense) ([]*mat.Dense, []*mat
 	activations, zs := mlp.forwardPass(X)
 	nSamples, _ := X.Dims()
 	layer := mlp.Nlayers - 2
+	derivativeZ := Derivative[mlp.Activation]
 
 	weightGrads := make([]*mat.Dense, mlp.Nlayers-1)
 	biasGrads := make([]*mat.Dense, mlp.Nlayers-1)
 	deltas := make([]*mat.Dense, mlp.Nlayers-1)
 
-  //TODO add different loss functions
 	//getting the error of the output layer (L) so we can propagate backwards
-	// δ^L = (a^L - y) ⊙ σ'(Z^L)
+	// δ^L = (a^L - y)
 	var delta mat.Dense
 	delta.Sub(activations[len(activations)-1], y)
-	derivativeZ := Derivative[mlp.Activation]
-	derivativeZ(zs[layer])
-	delta.MulElem(&delta, zs[layer])
 	deltas[layer] = &delta
 
 	mlp.calculateLossGrads(weightGrads, biasGrads, deltas, activations[len(activations)-2], layer, nSamples)
 
 	//propagate that error backwards
-	//δ^l = ((w^l)^T) • δ^l+1) ⊙ σ'(Z^L)
+	//δ^l = ((w^l)^T) • δ^l+1) ⊙ f'(Z^L)
 	for l := mlp.Nlayers - 2; l >= 1; l-- {
 		var newDelta mat.Dense
 		newDelta.Mul(deltas[l], mlp.Weights[l].T())
