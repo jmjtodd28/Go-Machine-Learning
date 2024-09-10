@@ -16,6 +16,7 @@ type MultiLayerPerceptron struct {
 	LearningRate float64
 	Activation   string
 	LossFunction string
+	Momentum     float64
 	Verbose      bool
 
 	Nlayers int
@@ -26,6 +27,10 @@ type MultiLayerPerceptron struct {
 	IsClassifier bool
 	// output layer activation layer depends on whether it is a classification or regression problem
 	OutputActivation string
+
+	//used for momentum SGD
+	weightVelocities []*mat.Dense
+	biasVelocities   []*mat.Dense
 }
 
 func NewMultiLayerPerceptron() *MultiLayerPerceptron {
@@ -36,6 +41,7 @@ func NewMultiLayerPerceptron() *MultiLayerPerceptron {
 		Verbose:      true,
 		Activation:   "relu",
 		Fitted:       false,
+		Momentum:     0.9,
 		IsClassifier: true,
 		LossFunction: "crossEntropyLoss",
 	}
@@ -356,15 +362,43 @@ func (mlp *MultiLayerPerceptron) backprop(X, y *mat.Dense) ([]*mat.Dense, []*mat
 	return weightGrads, biasGrads
 }
 
-// updates all the weights and biases
+// updates all the weights and biases with momentum
 // w = w - Δw
 func (mlp *MultiLayerPerceptron) updateParams(weightGrads, biasGrads []*mat.Dense) {
-	for i := range len(weightGrads) {
-		mlp.Weights[i].Sub(mlp.Weights[i], weightGrads[i])
+	// on the first iteration we need to init the velocities to zero
+	if mlp.weightVelocities == nil {
+		mlp.weightVelocities = make([]*mat.Dense, len(weightGrads))
+		mlp.biasVelocities = make([]*mat.Dense, len(biasGrads))
+		for i := range mlp.weightVelocities {
+			r, c := weightGrads[i].Dims()
+			mlp.weightVelocities[i] = mat.NewDense(r, c, make([]float64, r*c))
+		}
+		for i := range mlp.biasVelocities {
+			r, c := biasGrads[i].Dims()
+			mlp.biasVelocities[i] = mat.NewDense(r, c, make([]float64, r*c))
+		}
 	}
 
-	for i := range len(biasGrads) {
-		mlp.Bias[i].Sub(mlp.Bias[i], biasGrads[i])
+	for i := range len(weightGrads) {
+		//updating Weights
+		// v = beta * v - dw
+		var updateW mat.Dense
+		updateW.Scale(mlp.Momentum, mlp.weightVelocities[i])
+		updateW.Sub(&updateW, weightGrads[i])
+		mlp.weightVelocities[i].Copy(&updateW)
+
+		// w = w + v
+		mlp.Weights[i].Add(mlp.Weights[i], mlp.weightVelocities[i])
+
+		// Updating biases
+		// v = beta * v - db
+		var updateB mat.Dense
+		updateB.Scale(mlp.Momentum, mlp.biasVelocities[i])
+		updateB.Sub(&updateB, biasGrads[i])
+		mlp.biasVelocities[i].Copy(&updateB)
+
+		// b = b + v
+		mlp.Bias[i].Add(mlp.Bias[i], mlp.biasVelocities[i])
 	}
 }
 

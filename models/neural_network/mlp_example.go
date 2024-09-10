@@ -42,11 +42,12 @@ func MLPExample() {
 
   // Set Hyperparameters
 	mlp := NewMultiLayerPerceptron()
-	mlp.Arch = []int{784, 10, 10, 10}
-	mlp.Epochs = 100
+	mlp.Arch = []int{784, 40, 10}
+	mlp.Epochs = 10
 	mlp.BatchSize = 128
-	mlp.LearningRate = 0.01
+	mlp.LearningRate = 0.02
 	mlp.Activation = "relu"
+  mlp.Momentum = 0.9
 
   //Train the model
 	mlp.Train(X, y)
