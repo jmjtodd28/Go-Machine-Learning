@@ -15,6 +15,7 @@ type MultiLayerPerceptron struct {
 	BatchSize    int
 	LearningRate float64
 	Activation   string
+	LossFunction string
 	Verbose      bool
 
 	Nlayers int
@@ -36,6 +37,7 @@ func NewMultiLayerPerceptron() *MultiLayerPerceptron {
 		Activation:   "relu",
 		Fitted:       false,
 		IsClassifier: true,
+		LossFunction: "crossEntropyLoss",
 	}
 }
 
@@ -131,6 +133,34 @@ var Derivative = map[string]func(x *mat.Dense){
 	},
 }
 
+var LossFunctions = map[string]func(y, h *mat.Dense) float64{
+	"MSELoss": func(y, h *mat.Dense) float64 {
+		sum := 0.0
+		var loss mat.Dense
+		loss.Sub(y, h)
+		rows, cols := loss.Dims()
+		for i := range rows {
+			for j := range cols {
+				value := loss.At(i, j)
+				sum += value * value
+			}
+		}
+		return sum / (2 * float64(y.RawMatrix().Rows))
+	},
+	"crossEntropyLoss": func(y, h *mat.Dense) float64 {
+		sum := 0.0
+		rows, cols := y.Dims()
+		for i := range rows {
+			for j := range cols {
+				if y.At(i, j) != 0 {
+					sum += -math.Log(h.At(i, j))
+				}
+			}
+		}
+		return sum / float64(rows)
+	},
+}
+
 func sigmoid(z float64) float64 {
 	return 1.0 / (1.0 + math.Exp(-z))
 }
@@ -174,6 +204,8 @@ func (mlp *MultiLayerPerceptron) Train(X, y *mat.Dense) {
 		mlp.OutputActivation = "identity"
 	}
 
+	loss := LossFunctions[mlp.LossFunction]
+
 	nSamples, features := X.Dims()
 	_, ycols := y.Dims()
 
@@ -202,7 +234,7 @@ func (mlp *MultiLayerPerceptron) Train(X, y *mat.Dense) {
 
 		}
 		activatations, _ := mlp.forwardPass(X)
-		loss := mlp.loss(activatations[len(activatations)-1], y)
+		loss := loss(y, activatations[len(activatations)-1])
 
 		if mlp.Verbose {
 			fmt.Printf("Epoch %v, loss: %v, time:%v\n", i, loss, time.Since(t0))
@@ -250,7 +282,6 @@ func (mlp *MultiLayerPerceptron) forwardPass(X *mat.Dense) ([]*mat.Dense, []*mat
 
 	activations[0] = X
 	activatezs := Activate[mlp.Activation]
-
 	activateOutput := Activate[mlp.OutputActivation]
 
 	for i := range mlp.Nlayers - 1 {
@@ -348,21 +379,6 @@ func RowMean(m *mat.Dense) *mat.Dense {
 		x.Set(0, i, sum/float64(rows))
 	}
 	return x
-}
-
-func (mlp *MultiLayerPerceptron) loss(y, h *mat.Dense) float64 {
-	//Mean squared error
-	sum := 0.0
-	var loss mat.Dense
-	loss.Sub(y, h)
-	rows, cols := loss.Dims()
-	for i := range rows {
-		for j := range cols {
-			value := loss.At(i, j)
-			sum += value * value
-		}
-	}
-	return sum / (2 * float64(y.RawMatrix().Rows))
 }
 
 // Function to print the weights and biases for each layer
