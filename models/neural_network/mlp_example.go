@@ -2,7 +2,7 @@ package neuralnetwork
 
 import (
 	"Go-Machine-Learning/dataSets/mnist"
-	"Go-Machine-Learning/utils"
+	"Go-Machine-Learning/preprocessing"
 	"fmt"
 
 	"gonum.org/v1/gonum/mat"
@@ -12,7 +12,7 @@ func MLPExample() {
 
 	X, y := mnist.LoadMnistTrain()
 
-	y = utils.OneHotEncodeDense(10, y)
+	y = preprocessing.OneHotEncodeDense(10, y)
 
 	//normalise data
 	rows, cols := X.Dims()
