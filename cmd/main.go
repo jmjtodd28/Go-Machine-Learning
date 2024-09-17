@@ -5,7 +5,8 @@ import (
 )
 
 func main() {
-  neuralnetwork.MLPExample()
+//  neuralnetwork.MLPExample()
+  neuralnetwork.MLPRegressionExample()
 
   
 }

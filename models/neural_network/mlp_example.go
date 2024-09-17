@@ -46,8 +46,6 @@ func MLPExample() {
 	mlp.Epochs = 10
 	mlp.BatchSize = 128
 	mlp.LearningRate = 0.02
-	mlp.Activation = "relu"
-  mlp.Momentum = 0.9
 
   //Train the model
 	mlp.Train(X, y)

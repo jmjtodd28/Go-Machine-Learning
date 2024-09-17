@@ -1,2 +1,3 @@
-*.csv
+mnist_test.csv
+mnist_train.csv
 .DS_Store
