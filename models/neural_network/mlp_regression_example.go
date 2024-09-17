@@ -1,7 +1,7 @@
 package neuralnetwork
 
 import (
-	"Go-Machine-Learning/dataSets/boston"
+	"Go-Machine-Learning/datasets/boston"
 	"fmt"
 )
 
