@@ -2,6 +2,7 @@ package neuralnetwork
 
 import (
 	"Go-Machine-Learning/datasets/boston"
+	"Go-Machine-Learning/preprocessing"
 	"fmt"
 )
 
@@ -12,13 +13,16 @@ func MLPRegressionExample() {
 	fmt.Println(X.Dims())
 	fmt.Println(y.Dims())
 
-  mlp := NewMultiLayerPerceptron()
+	ss := preprocessing.NewStandardScaler()
+	ss.FitTransform(X)
 
-  mlp.IsClassifier = false
-  mlp.Arch = []int{13, 10, 10, 1}
-  mlp.Epochs = 1000
-  mlp.LossFunction = "MSELoss"
-  mlp.LearningRate = 0.01
+	mlp := NewMultiLayerPerceptron()
 
-  mlp.Train(X, y)
+	mlp.IsClassifier = false
+	mlp.Arch = []int{13, 20, 20, 1}
+	mlp.Epochs = 100
+	mlp.LossFunction = "MSELoss"
+	mlp.LearningRate = 0.0001
+
+	mlp.Train(X, y)
 }
