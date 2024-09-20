@@ -243,7 +243,12 @@ func (mlp *MultiLayerPerceptron) Train(X, y *mat.Dense) {
 		loss := loss(y, activatations[len(activatations)-1])
 
 		if mlp.Verbose {
-			fmt.Printf("Epoch %v, loss: %v, time:%v\n", i, loss, time.Since(t0))
+			if mlp.IsClassifier {
+				accuracy := mlp.Accuracy(y, activatations[len(activatations)-1])
+				fmt.Printf("Epoch %v, loss: %.4f, accuracy: %.4f%% time:%v\n", i, loss, accuracy, time.Since(t0))
+			} else {
+				fmt.Printf("Epoch %v, loss: %v, time:%v\n", i, loss, time.Since(t0))
+			}
 		}
 
 		t0 = time.Now()
@@ -413,6 +418,34 @@ func RowMean(m *mat.Dense) *mat.Dense {
 		x.Set(0, i, sum/float64(rows))
 	}
 	return x
+}
+
+// accuracy for clasification tasks to display % of predicted correct
+func (mlp *MultiLayerPerceptron) Accuracy(y, h *mat.Dense) float64 {
+	rows, _ := y.Dims()
+	correct := 0.0
+	for i := range rows {
+		row := h.RawRowView(i)
+		maxIdx := argmax(row)
+		if y.At(i, maxIdx) == 1.0 {
+			correct++
+		}
+	}
+	return (correct / float64(rows)) * 100
+}
+
+// Function that returns index of largest value in a matrix
+func argmax(x []float64) int {
+	maxVal := 0.0
+	maxIdx := 0
+	for i := range x {
+		value := x[i]
+		if value > maxVal {
+			maxIdx = i
+			maxVal = value
+		}
+	}
+	return maxIdx
 }
 
 // Function to print the weights and biases for each layer

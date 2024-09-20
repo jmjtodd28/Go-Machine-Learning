@@ -22,7 +22,6 @@ func MLPExample() {
 			X.Set(i, j, value)
 		}
 	}
-
 	/*
 		//Creating a and gate
 		X := mat.NewDense(4, 2, []float64{
@@ -31,21 +30,23 @@ func MLPExample() {
 			0, 1,
 			1, 1})
 
-
 		y := mat.NewDense(4, 1, []float64{
 			0,
 			1,
 			1,
 			0,
 		})
-	*/
 
+		y = preprocessing.OneHotEncodeDense(2, y)
+
+	*/
 	// Set Hyperparameters
 	mlp := NewMultiLayerPerceptron()
 	mlp.Arch = []int{784, 40, 10}
 	mlp.Epochs = 10
 	mlp.BatchSize = 128
 	mlp.LearningRate = 0.02
+	mlp.IsClassifier = true
 
 	//Train the model
 	mlp.Train(X, y)
@@ -53,6 +54,7 @@ func MLPExample() {
 	//Make a prediciton of one of the samples
 	_, xcols := X.Dims()
 	xPredict := X.Slice(1, 3, 0, xcols).(*mat.Dense)
+	//fmt.Printf("xPredict: %v\n", xPredict)
 	prediction := mlp.Predict(xPredict)
 	fmt.Printf("prediction: %v\n", prediction)
 
