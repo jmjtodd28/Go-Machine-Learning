@@ -40,20 +40,20 @@ func MLPExample() {
 		})
 	*/
 
-  // Set Hyperparameters
+	// Set Hyperparameters
 	mlp := NewMultiLayerPerceptron()
 	mlp.Arch = []int{784, 40, 10}
 	mlp.Epochs = 10
 	mlp.BatchSize = 128
 	mlp.LearningRate = 0.02
 
-  //Train the model
+	//Train the model
 	mlp.Train(X, y)
 
-  //Make a prediciton of one of the samples
-  _, xcols := X.Dims()
+	//Make a prediciton of one of the samples
+	_, xcols := X.Dims()
 	xPredict := X.Slice(1, 3, 0, xcols).(*mat.Dense)
-  prediction := mlp.Predict(xPredict)
-  fmt.Printf("prediction: %v\n", prediction)
+	prediction := mlp.Predict(xPredict)
+	fmt.Printf("prediction: %v\n", prediction)
 
 }
