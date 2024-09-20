@@ -24,5 +24,5 @@ func MLPRegressionExample() {
 	mlp.LossFunction = "MSELoss"
 	mlp.LearningRate = 0.0001
 
-	mlp.Train(X, y)
+	mlp.Train(X, y, nil, nil)
 }

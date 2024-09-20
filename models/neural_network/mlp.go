@@ -200,7 +200,8 @@ func (mlp *MultiLayerPerceptron) initWeights() {
 }
 
 // Trains using SGD by splitting the data into batches
-func (mlp *MultiLayerPerceptron) Train(X, y *mat.Dense) {
+// XTest and yTest can be nil if there is no test data for training
+func (mlp *MultiLayerPerceptron) Train(XTrain, yTrain, XTest, yTest *mat.Dense) {
 	mlp.initWeights()
 
 	//set the Activation of the output layer depending on problem type
@@ -210,10 +211,15 @@ func (mlp *MultiLayerPerceptron) Train(X, y *mat.Dense) {
 		mlp.OutputActivation = "identity"
 	}
 
+	testingData := true
+	if XTest == nil && yTest == nil {
+		testingData = false
+	}
+
 	loss := LossFunctions[mlp.LossFunction]
 
-	nSamples, features := X.Dims()
-	_, ycols := y.Dims()
+	nSamples, features := XTrain.Dims()
+	_, ycols := yTrain.Dims()
 
 	t0 := time.Now()
 	t1 := time.Now()
@@ -222,7 +228,6 @@ func (mlp *MultiLayerPerceptron) Train(X, y *mat.Dense) {
 	batchStart := 0
 
 	for i := range mlp.Epochs {
-
 		for batch := 0; batch*batchSize < nSamples; batch++ {
 			batchStart = batch * batchSize
 			batchEnd := batchStart + batchSize
@@ -231,23 +236,57 @@ func (mlp *MultiLayerPerceptron) Train(X, y *mat.Dense) {
 				batchEnd = nSamples
 			}
 
-			Xs := X.Slice(batchStart, batchEnd, 0, features).(*mat.Dense)
-			ys := y.Slice(batchStart, batchEnd, 0, ycols).(*mat.Dense)
+			Xs := XTrain.Slice(batchStart, batchEnd, 0, features).(*mat.Dense)
+			ys := yTrain.Slice(batchStart, batchEnd, 0, ycols).(*mat.Dense)
 
 			weightGrads, biasGrads := mlp.backprop(Xs, ys)
 
 			mlp.updateParams(weightGrads, biasGrads)
-
 		}
-		activatations, _ := mlp.forwardPass(X)
-		loss := loss(y, activatations[len(activatations)-1])
 
+		//Calculating metrics, if there is no test data then we dont include a test loss or test accuracy
+		//Printing information to screen for each epoch if verbose is true
 		if mlp.Verbose {
-			if mlp.IsClassifier {
-				accuracy := mlp.Accuracy(y, activatations[len(activatations)-1])
-				fmt.Printf("Epoch %v, loss: %.4f, accuracy: %.4f%% time:%v\n", i, loss, accuracy, time.Since(t0))
-			} else {
-				fmt.Printf("Epoch %v, loss: %v, time:%v\n", i, loss, time.Since(t0))
+			if mlp.IsClassifier && testingData {
+
+				//training metrics
+				trainActivatations, _ := mlp.forwardPass(XTrain)
+				trainLoss := loss(yTrain, trainActivatations[len(trainActivatations)-1])
+				trainAccuracy := mlp.Accuracy(yTrain, trainActivatations[len(trainActivatations)-1])
+				fmt.Printf("Epoch %v, training loss: %.4f, training accuracy: %.4f%%, ", i, trainLoss, trainAccuracy)
+
+				//testing metrics
+				testActivations, _ := mlp.forwardPass(XTest)
+				testLoss := loss(yTest, testActivations[len(testActivations)-1])
+				testAccuracy := mlp.Accuracy(yTest, testActivations[len(testActivations)-1])
+				fmt.Printf("testing loss: %.4f, testing accuracy: %.4f%% time:%v\n", testLoss, testAccuracy, time.Since(t0))
+
+			} else if mlp.IsClassifier && !testingData {
+
+				//train metrics
+				trainActivatations, _ := mlp.forwardPass(XTrain)
+				trainLoss := loss(yTrain, trainActivatations[len(trainActivatations)-1])
+				trainAccuracy := mlp.Accuracy(yTrain, trainActivatations[len(trainActivatations)-1])
+				fmt.Printf("Epoch %v, loss: %.4f, accuracy: %.4f%%, time:%v\n", i, trainLoss, trainAccuracy, time.Since(t0))
+
+			} else if !mlp.IsClassifier && testingData {
+
+				//train metrics
+				trainActivatations, _ := mlp.forwardPass(XTrain)
+				trainLoss := loss(yTrain, trainActivatations[len(trainActivatations)-1])
+				fmt.Printf("Epoch %v, training loss: %.4f, ", i, trainLoss)
+
+				//test metrics
+				testActivations, _ := mlp.forwardPass(XTest)
+				testLoss := loss(yTest, testActivations[len(testActivations)-1])
+				fmt.Printf("test loss: %.4f time:%v\n", testLoss, time.Since(t0))
+
+			} else if !mlp.IsClassifier && !testingData {
+
+				//train metrics
+				trainActivatations, _ := mlp.forwardPass(XTrain)
+				trainLoss := loss(yTrain, trainActivatations[len(trainActivatations)-1])
+				fmt.Printf("Epoch %v, loss: %.4f, time:%v\n", i, trainLoss, time.Since(t0))
 			}
 		}
 

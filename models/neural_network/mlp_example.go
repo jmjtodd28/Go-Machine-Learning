@@ -10,50 +10,60 @@ import (
 
 func MLPExample() {
 
-	X, y := mnist.LoadMnistTrain()
+	XTrain, yTrain := mnist.LoadMnistTrain()
+	XTest, yTest := mnist.LoadMnistTest()
 
-	y = preprocessing.OneHotEncodeDense(10, y)
+	yTrain = preprocessing.OneHotEncodeDense(10, yTrain)
+	yTest = preprocessing.OneHotEncodeDense(10, yTest)
 
 	//normalise data
-	rows, cols := X.Dims()
+	rows, cols := XTrain.Dims()
 	for i := range rows {
 		for j := range cols {
-			value := X.At(i, j) / 255
-			X.Set(i, j, value)
+			value := XTrain.At(i, j) / 255
+			XTrain.Set(i, j, value)
+		}
+	}
+	rows, cols = XTest.Dims()
+	for i := range rows {
+		for j := range cols {
+			value := XTest.At(i, j) / 255
+			XTest.Set(i, j, value)
 		}
 	}
 	/*
 		//Creating a and gate
-		X := mat.NewDense(4, 2, []float64{
+		XTrain := mat.NewDense(4, 2, []float64{
 			0, 0,
 			1, 0,
 			0, 1,
 			1, 1})
 
-		y := mat.NewDense(4, 1, []float64{
+		yTrain := mat.NewDense(4, 1, []float64{
 			0,
 			1,
 			1,
 			0,
 		})
 
-		y = preprocessing.OneHotEncodeDense(2, y)
+		yTrain = preprocessing.OneHotEncodeDense(2, yTrain)
 
 	*/
-	// Set Hyperparameters
+	// Set hyperparameters
 	mlp := NewMultiLayerPerceptron()
 	mlp.Arch = []int{784, 40, 10}
-	mlp.Epochs = 10
+	mlp.Epochs = 20
 	mlp.BatchSize = 128
-	mlp.LearningRate = 0.02
+	mlp.LearningRate = 0.01
+	mlp.Activation = "relu"
 	mlp.IsClassifier = true
 
 	//Train the model
-	mlp.Train(X, y)
+	mlp.Train(XTrain, yTrain, XTest, yTest)
 
 	//Make a prediciton of one of the samples
-	_, xcols := X.Dims()
-	xPredict := X.Slice(1, 3, 0, xcols).(*mat.Dense)
+	_, xcols := XTrain.Dims()
+	xPredict := XTrain.Slice(1, 3, 0, xcols).(*mat.Dense)
 	//fmt.Printf("xPredict: %v\n", xPredict)
 	prediction := mlp.Predict(xPredict)
 	fmt.Printf("prediction: %v\n", prediction)
