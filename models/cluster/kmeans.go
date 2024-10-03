@@ -94,5 +94,25 @@ func (k *Kmeans) Fit(X *mat.Dense) {
 
 // Calculates predicted classes based on the calculated centers
 func (k *Kmeans) Predict(X *mat.Dense) *mat.Dense {
-	return X
+	//For each sample in X find the nearest center
+	nSamples, _ := X.Dims()
+
+	nearestCenters := mat.NewDense(nSamples, 1, make([]float64, nSamples))
+
+	for i := range nSamples {
+		nearestDist := math.Inf(1)
+		nearestCenter := -1
+
+		for j := range k.NClusters {
+			dist := Euclidean(X.RowView(i), k.Centers.RowView(j))
+			if dist < nearestDist {
+				nearestCenter = j
+				nearestDist = dist
+			}
+		}
+
+		nearestCenters.Set(i, 0, float64(nearestCenter))
+	}
+
+	return nearestCenters
 }
